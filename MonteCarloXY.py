@@ -31,7 +31,7 @@ class Box():
 
         return summ
 
-    def get_state_or_smt
+    # def get_state_or_smt
 
     def bleh(self, ti):
         x,y = np.random.choice(self.N, size=2)
@@ -119,7 +119,6 @@ def main():
 
     animated(box)
     # normal(box)
-
 
 
 if __name__ == "__main__":
