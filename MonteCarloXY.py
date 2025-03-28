@@ -90,7 +90,7 @@ def animated(box):
 
     def animate(i):
         # print(i)
-        box.swee
+        box.sweep()
         for j in range(update_every):
             box.bleh(i*update_every+j)
         # print(np.shape(box.state()))
