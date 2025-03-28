@@ -24,7 +24,7 @@ class Box():
         Computes the energy contribution between two neighbouring spins, 
         i.e. the interaction energy.
         """
-        return -1 * np.cos(si)*np.cos(sj) + np.sin(si)*np.sin(sj)
+        return -1 * (np.cos(si)*np.cos(sj) + np.sin(si)*np.sin(sj))
 
     def Hamiltonian(self, x,y,val):
         """
@@ -63,13 +63,15 @@ class Box():
         if H2 < H1:
             print('New E is lower, accept the move!')
             self.spins[x,y] = new
+            self.energies[ti] = self.energies[ti-1] + dE
+
         elif np.random.rand() < p: #dit snap ik niet? moet het niet zijn <?
             print('New E is higher, accept with certain probability!')
             self.spins[x,y] = new
 
     def sweep(self): 
         """
-        Performs NxN Metropolis steps, so every site in the grid.
+        Performs NxN Metropolis steps, so for every site in the grid.
         """
         for i in range(self.N ** 2):
             self.metropolis_1()
@@ -77,7 +79,7 @@ class Box():
     def plot_energy(self):
         plt.figure()
         plt.plot(self.energies)
-        plt.savefig('energy.png')
+        plt.savefig('energy2.png')
 
     def state(self):
         U = np.cos(self.spins)
@@ -91,8 +93,8 @@ class Box():
         V = np.sin(self.spins)
         M = self.spins
         plt.figure()
-        plt.quiver([X, Y], U, V, M)
-        plt.savefig('state.png')
+        plt.quiver(X, Y, U, V, M)
+        plt.savefig('state2.png')
 
     def run(self):
         for time_step in range(1, self.steps):
@@ -140,8 +142,8 @@ def main():
 
     #box.plot_state
     #box.plot_energy
-    animated(box)
-    # normal(box)
+    #animated(box)
+    normal(box)
 
 
 if __name__ == "__main__":
