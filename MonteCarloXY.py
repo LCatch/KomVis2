@@ -18,13 +18,14 @@ class Box():
         # self.spins = np.zeros([N,N])
         self.X, self.Y = np.meshgrid(np.arange(0,self.N), np.arange(0, self.N)) #2D grid lattice NxN
         self.energies = np.zeros(steps) #to store energies of the system at each t-step
+        self.ti = 0     # index of last accepted step
 
     def inner_prod(self, si, sj):
         """
         Computes the energy contribution between two neighbouring spins, 
         i.e. the interaction energy.
         """
-        return -1 * np.cos(si)*np.cos(sj) + np.sin(si)*np.sin(sj)
+        return -1 * (np.cos(si)*np.cos(sj) + np.sin(si)*np.sin(sj))
 
     def Hamiltonian(self, x,y,val):
         """
@@ -41,10 +42,12 @@ class Box():
 
     # def get_state_or_smt
 
-    def metropolis_1(self, ti):
+
+    def metropolis_1(self):
         """
         Computes the Metropolis algorithm for one position on the grid. 
         """
+        ti = self.ti
         x,y = np.random.choice(self.N, size=2) #picks random x,y (site) from grid
         curr = self.spins[x,y] #spins on the random grid point
         new = np.random.uniform(-np.pi, np.pi, 1) #new spin state
@@ -52,20 +55,30 @@ class Box():
         H2 = self.Hamiltonian(x,y,new)
 
         dE = H2 - H1 #Difference in the energies of 2 systems 
-        print(dE)
-        self.energies[ti] = self.energies[ti-1] + dE
+        # print(dE)
 
         # add acceptance logic
         p = np.exp(-1/self.T * dE) 
-        print(p)
+        # print(p)
         # p = 2
 
         if H2 < H1:
-            print('New E is lower, accept the move!')
+            # print('New E is lower, accept the move!')
             self.spins[x,y] = new
+            self.energies[ti+1] = self.energies[ti] + dE
+            self.ti += 1 
+            
         elif np.random.rand() < p: #dit snap ik niet? moet het niet zijn <?
-            print('New E is higher, accept with certain probability!')
+            # print('New E is higher, accept with certain probability!')
             self.spins[x,y] = new
+            self.energies[ti+1] = self.energies[ti] + dE
+            self.ti += 1
+
+    def magnetization(self):
+        pass
+
+    def total_energy(self):
+        pass
 
     def sweep(self): 
         """
@@ -91,13 +104,14 @@ class Box():
         V = np.sin(self.spins)
         M = self.spins
         plt.figure()
-        plt.quiver([X, Y], U, V, M)
+        plt.quiver(X, Y, U, V, M, pivot='mid')
         plt.savefig('state.png')
 
     def run(self):
-        for time_step in range(1, self.steps):
-            self.metropolis_1(time_step)
-            self.state
+        while self.ti+1 < self.steps:
+        # for time_step in range(1, self.steps):
+            self.metropolis_1()
+            self.state()
 
 def animated(box):
     fig = plt.figure()
@@ -109,17 +123,29 @@ def animated(box):
     def animate(i):
         # print(i)
         box.sweep
-        update_every =5 
-        for j in range(update_every):
-            box.metropolis_1(i*update_every+j)
-        # print(np.shape(box.state()))
+        update_every = 5
+        
+
+        old_ti = box.ti
+        # print(i)
+        if box.ti+1 >= box.steps:
+            return quiv,
+        while box.ti == old_ti:
+            box.metropolis_1()
+            # box.state()
+            # print('cur ti: ', box.ti)
+            # print('old ti: ', old_ti)
+
+        # print('exit while')
+
         a, c, d = box.state()
         quiv.set_UVC(a,c,d) 
         
         return quiv,
-    update_every=5
+
+    # update_every=5
     anim = FuncAnimation(fig, animate, 
-                     frames=box.steps//update_every, interval=20, blit = True) 
+                     frames=box.steps, interval=10, blit = True) 
     
     anim.save('test2.mp4', writer='ffmpeg')
 
@@ -132,9 +158,9 @@ def normal(box):
     box.plot_energy()
 
 def main():
-    N = 10
-    steps = 100
-    box = Box(N=N, steps=steps)
+    N = 20
+    steps = 1000
+    box = Box(N=N, steps=steps, T=0.5)
 
     #box.metropolis_1(1)
 
