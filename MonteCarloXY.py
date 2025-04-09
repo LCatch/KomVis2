@@ -88,11 +88,30 @@ class Box():
         self.energies[ti+1] = self.energies[ti] + dE
         self.ti += 1
 
-    def magnetization(self):
-        pass
+    def total_magnetization(self):
+        """
+        Calculates total magnetization M of the system.
+        """
+        Mx = np.sum(np.cos(self.spins))
+        My = np.sum(np.sin(self.spins))
+
+        M = np.sqrt(Mx**2 + My**2)
+        return M
+    
+    def plot_magnetization(self):
+        m = self.total_magnetization()/(self.N **2) #magnetization per spin
+
+        plt.figure()
+        #plt.plot(, self.M)
+
 
     def total_energy(self):
-        pass
+        total_E= 0
+        for i in range(self.N):
+            for j in range(self.N):
+                total_E+= self.Hamiltonian(i, j, self.spins[i,j])
+        print(-1*total_E/2)
+        return -1*total_E/2
 
     def sweep(self): 
         """
@@ -164,11 +183,20 @@ def normal(box):
 
 def main():
     N = 20
-    steps = 5000
-    box = Box(N=N, steps=steps, T=2.5, seed=12)
-
-    #animated(box)
+    steps = 1000
+    box = Box(N=N, steps=steps)
+    
     normal(box)
+
+    box.total_magnetization()
+    box.total_energy()
+    box.plot_state()
+
+
+    #box.plot_state
+    #box.plot_energy
+    #animated(box)
+    #normal(box)
 
 
 if __name__ == "__main__":
