@@ -6,7 +6,10 @@ python MonteCarloXY.py
 
 import matplotlib.pyplot as plt
 import numpy as np
+from math import sin, cos
 from matplotlib.animation import FuncAnimation 
+
+plt.rcParams['image.cmap'] = 'hsv'
 
 class Box():
     def __init__(self,N=10, steps=100, T=1, seed=3823582):
@@ -15,20 +18,23 @@ class Box():
         self.T = T #temperature
 
         
-        # self.spins = np.zeros([N,N])
-        self.X, self.Y = np.meshgrid(np.arange(0,self.N), np.arange(0, self.N)) #2D grid lattice NxN
-        self.energies = np.zeros(steps) #to store energies of the system at each t-step
-        self.ti = 0     # index of last accepted step
+        self.spins = np.zeros([N,N])
+        self.X, self.Y = np.meshgrid(np.arange(0,self.N), np.arange(0, self.N))
+        self.energies = np.zeros(steps+1)
+        self.magnetizations = np.zeros([steps+1, 2])
+        # self.ti = 0     # index of last accepted step
 
         self.set_init_conditions(seed=seed)
+        self.energies[0] = self.total_energy()
+        self.magnetizations[0] = self.total_magnetization()
 
 
-    def set_init_conditions(self, rnd=True, abs_zero=False, seed=3823582):
+    def set_init_conditions(self, rnd=True, seed=3823582):
         # TODO: decide logical way to create init state, options:
             # random random seed
             # random set seed
             # absolute 0
-        if abs_zero:
+        if seed==0:
             return
         if rnd:
             rng = np.random.default_rng()
@@ -60,33 +66,38 @@ class Box():
     def try_new_state(self):
         ''' Try 1 new position '''
         x,y = np.random.choice(self.N, size=2)
-        curr = self.spins[x,y]
-        new = np.random.uniform(-np.pi, np.pi, 1)
-        H1 = self.Hamiltonian(x,y,curr)
-        H2 = self.Hamiltonian(x,y,new)
+        spin_curr = self.spins[x,y]
+        spin_new = np.random.uniform(-np.pi, np.pi, 1)
+        H1 = self.Hamiltonian(x,y,spin_curr)
+        H2 = self.Hamiltonian(x,y,spin_new)
 
         dE = H2 - H1
         p = np.exp(-1/self.T * dE) 
 
         if (H2 < H1) or (np.random.rand() < p):
-            return new, (x,y), dE
+            self.spins[x,y] = spin_new
+            dM = [cos(spin_new) - cos(spin_curr), sin(spin_new) - sin(spin_curr)]
+            # dM = [0,0]
+            return dE, dM
         else:
-            return False, False, False
+            return 0, [0,0]
 
-    def step_metropolis(self):
-        '''
-        Perform 1 Metropolis step: try new states until one satifsies 
-        requirements.
-        '''
-        ti = self.ti
+    def sweep(self, ti): 
+        """
+        Performs NxN Metropolis steps, so for every site in the grid.
+        """
+        dE_tot = 0
+        dM_tot = np.array([0.0,0.0])
+        for i in range(self.N ** 2):
+            dE, dM = self.try_new_state()
+            # print('de: ', dE, 'dM: ', dM)
+            dE_tot += dE
+            dM_tot += dM
+        
+        # print(dM)
 
-        new_state = False
-        while not new_state:
-            new_state, pos, dE = self.try_new_state()
-
-        self.spins[pos] = new_state
-        self.energies[ti+1] = self.energies[ti] + dE
-        self.ti += 1
+        self.energies[ti+1] = self.energies[ti] + dE_tot
+        self.magnetizations[ti+1] = self.magnetizations[ti] + dM_tot
 
     def total_magnetization(self):
         """
@@ -95,16 +106,9 @@ class Box():
         Mx = np.sum(np.cos(self.spins))
         My = np.sum(np.sin(self.spins))
 
-        M = np.sqrt(Mx**2 + My**2)
-        return M
+        # M = np.sqrt(Mx*Mx + My*My)
+        return Mx, My
     
-    def plot_magnetization(self):
-        m = self.total_magnetization()/(self.N **2) #magnetization per spin
-
-        plt.figure()
-        #plt.plot(, self.M)
-
-
     def total_energy(self):
         total_E= 0
         for i in range(self.N):
@@ -112,18 +116,31 @@ class Box():
                 total_E+= self.Hamiltonian(i, j, self.spins[i,j])
         print(-1*total_E/2)
         return -1*total_E/2
+    
+    def plot_magnetization(self, ax=None):
+        save=False
+        abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
+        
+        if not ax:
+            plt.figure()
+            ax = plt.gca()
+            save = True
+        ax.plot(abs_magn)
+        
+        if save:
+            plt.savefig('magn.png')
 
-    def sweep(self): 
-        """
-        Performs NxN Metropolis steps, so for every site in the grid.
-        """
-        for i in range(self.N ** 2):
-            self.step_metropolis()
-
-    def plot_energy(self):
-        plt.figure()
-        plt.plot(self.energies)
-        plt.savefig('energy.png')
+    def plot_energy(self, ax=None):
+        save=False
+        if not ax:
+            plt.figure()
+            ax = plt.gca()
+            save = True
+        
+        ax.plot(self.energies / (self.N ** 2))
+        
+        if save:
+            plt.savefig('energy.png')
 
     def state(self):
         U = np.cos(self.spins)
@@ -136,67 +153,117 @@ class Box():
         U = np.cos(self.spins)
         V = np.sin(self.spins)
         M = self.spins
-        plt.figure()
-        plt.quiver(X, Y, U, V, M, pivot='mid')
+        plt.figure(figsize=[10,10])
+        # plt.gca().set_facecolor('black')
+        plt.quiver(X, Y, U, V, M, pivot='mid', scale=1, scale_units='xy',
+                headaxislength=10, headlength=10, headwidth=6)
         plt.savefig('state.png')
 
     def run(self):
         print('running...')
         # while self.ti+1 < self.steps:
-        for time_step in range(1, self.steps):
-            self.step_metropolis()
-            self.state()
+        for time_step in range(0, self.steps):
+            self.sweep(time_step)
+            if (time_step%100==0):
+                print(f'{time_step} steps done')
+            # self.state()
 
 def animated(box):
-    fig = plt.figure()
+    fig = plt.figure(figsize=[6,6])
+    plt.title(f'T = {box.T}')
     ax = plt.axes(xlim =(0, box.N), ylim =(0, box.N))
     quiv = ax.quiver([], [], [], [], [])
     a,c,d = box.state()
-    quiv = ax.quiver(box.X, box.Y, a,c,d, pivot='mid') 
+    quiv = ax.quiver(box.X, box.Y, a,c,d, pivot='mid', scale=1, scale_units='xy',
+                headaxislength=10, headlength=10, headwidth=6) 
 
-    def animate(i):
-        box.sweep
-        update_every = 5
-
-        if box.ti+1 >= box.steps:
-            pass
-        else:
-            box.step_metropolis()
-            a, c, d = box.state()
-            quiv.set_UVC(a,c,d) 
+    def animate(ti):
+        box.sweep(ti)
+        a, c, d = box.state()
+        quiv.set_UVC(a,c,d) 
         
         return quiv,
 
     # update_every=5
     anim = FuncAnimation(fig, animate, 
-                     frames=box.steps, interval=10, blit = True) 
+                     frames=box.steps, interval=20, blit = True) 
     
-    anim.save('test2.mp4', writer='ffmpeg')
+    anim.save('test.mp4', writer='ffmpeg')
 
     box.plot_state()
     box.plot_energy()
+    box.plot_magnetization()
 
 def normal(box):
     box.run()
     box.plot_state()
     box.plot_energy()
+    box.plot_magnetization()
 
-def main():
+def batch():
     N = 20
     steps = 1000
-    box = Box(N=N, steps=steps)
-    
-    normal(box)
+    T = 0.5
+    Nsims = 2
 
-    box.total_magnetization()
-    box.total_energy()
-    box.plot_state()
+    fig_E, axs_E = plt.subplots(Nsims, 1)
+    fig_M, axs_M = plt.subplots(Nsims, 1)
+
+    for i in range(Nsims):
+        box = Box(N=N, steps=steps, seed=975+i, T=T)
+        box.run()
+
+        box.plot_energy(axs_E[i])
+        box.plot_magnetization(axs_M[i])
+
+    fig_E.savefig(f'energy_{T}.png')
+    fig_M.savefig(f'magn_{T}.png')
+
+def batch2():
+    N = 20
+    steps = 100
+
+    Ts = np.arange(0.5, 2.5, 0.2)
+
+    fig_E, axs_E = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
+    fig_M, axs_M = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
+
+    for i, T in enumerate(Ts):
+        box = Box(N=N, steps=steps, T=T)
+        box.run()
+
+        box.plot_energy(axs_E[i])
+        axs_E[i].set_title(f'T = {T}')
+        box.plot_magnetization(axs_M[i])
+        axs_M[i].set_title(f'T = {T}')
+
+    fig_E.savefig(f'energy.png')
+    fig_M.savefig(f'magn.png')
+
+def main():
+    N = 50
+    steps = 200
+    box = Box(N=N, steps=steps, seed=1, T=1.5)
+    # normal(box)
+
+    # batch2()
+    animated(box)
+
+    # box.total_magnetization()
+    # box.total_energy()
+    # box.plot_state()
+    # box.plot_magnetization()
+    # box.plot_energy()
+
+    mx, my = box.total_magnetization()
+    a = np.sqrt(mx ** 2 + my ** 2)
+    print(a)
+    print(np.sqrt(np.sum(box.magnetizations[-1] ** 2)))
 
 
     #box.plot_state
     #box.plot_energy
-    #animated(box)
-    #normal(box)
+    # 
 
 
 if __name__ == "__main__":
