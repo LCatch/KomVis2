@@ -117,7 +117,7 @@ class Box():
         print(-1*total_E/2)
         return -1*total_E/2
     
-    def plot_magnetization(self, ax=None):
+    def plot_magnetization(self, ax=None, label = ""):
         save=False
         abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
         
@@ -125,22 +125,22 @@ class Box():
             plt.figure()
             ax = plt.gca()
             save = True
-        ax.plot(abs_magn)
+        ax.plot(abs_magn, label = label)
         
         if save:
-            plt.savefig('magn.png')
+            plt.savefig('magn_plot.png')
 
-    def plot_energy(self, ax=None):
+    def plot_energy(self, ax=None, label=""):
         save=False
         if not ax:
             plt.figure()
             ax = plt.gca()
             save = True
         
-        ax.plot(self.energies / (self.N ** 2))
+        ax.plot(self.energies / (self.N ** 2), label = label)
         
         if save:
-            plt.savefig('energy.png')
+            plt.savefig(f'energy_plot.png') 
 
     def state(self):
         U = np.cos(self.spins)
@@ -202,7 +202,7 @@ def normal(box):
 
 def batch():
     N = 20
-    steps = 1000
+    steps = 500
     T = 0.5
     Nsims = 2
 
@@ -210,44 +210,53 @@ def batch():
     fig_M, axs_M = plt.subplots(Nsims, 1)
 
     for i in range(Nsims):
-        box = Box(N=N, steps=steps, seed=975+i, T=T)
+        box = Box(N=N, steps=steps, seed=975, T=T)
         box.run()
 
         box.plot_energy(axs_E[i])
+        axs_E[i].set_title(f'Energy for simul {i}')
         box.plot_magnetization(axs_M[i])
+        axs_M[i].set_title(f'Magnetization for simul {i}')
 
-    fig_E.savefig(f'energy_{T}.png')
-    fig_M.savefig(f'magn_{T}.png')
+
+    fig_E.savefig(f'energy_{T}_multi.png')
+    fig_M.savefig(f'magn_{T}_multi.png')
 
 def batch2():
-    N = 20
+    N = 10
     steps = 100
+    Nsims = 2
 
     Ts = np.arange(0.5, 2.5, 0.2)
 
     fig_E, axs_E = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
     fig_M, axs_M = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
+    
+    for j in range(Nsims):
+        for i, T in enumerate(Ts):
+            box = Box(N=N, steps=steps, T=T)
+            box.run()
 
-    for i, T in enumerate(Ts):
-        box = Box(N=N, steps=steps, T=T)
-        box.run()
+            box.plot_energy(axs_E[i], label = f'Simul {j+1}')
+            axs_E[i].set_title(f'T = {T}')
+            axs_E[i].legend()          
+            box.plot_magnetization(axs_M[i], label = f'Simul {j+1}')
+            axs_M[i].set_title(f'T = {T}')
+            axs_M[i].legend()
 
-        box.plot_energy(axs_E[i])
-        axs_E[i].set_title(f'T = {T}')
-        box.plot_magnetization(axs_M[i])
-        axs_M[i].set_title(f'T = {T}')
+    fig_E.savefig(f'energymulti.png')
+    fig_M.savefig(f'magnmulti.png')
 
-    fig_E.savefig(f'energy.png')
-    fig_M.savefig(f'magn.png')
+
 
 def main():
     N = 50
     steps = 200
-    box = Box(N=N, steps=steps, seed=1, T=1.5)
-    # normal(box)
+    #box = Box(N=N, steps=steps, seed=1, T=1.5)
 
-    # batch2()
-    animated(box)
+#    batch()
+    batch2()
+    #animated(box)
 
     # box.total_magnetization()
     # box.total_energy()
@@ -255,15 +264,14 @@ def main():
     # box.plot_magnetization()
     # box.plot_energy()
 
-    mx, my = box.total_magnetization()
-    a = np.sqrt(mx ** 2 + my ** 2)
-    print(a)
-    print(np.sqrt(np.sum(box.magnetizations[-1] ** 2)))
+    # mx, my = box.total_magnetization()
+    # a = np.sqrt(mx ** 2 + my ** 2)
+    # print(a)
+    # print(np.sqrt(np.sum(box.magnetizations[-1] ** 2)))
 
 
     #box.plot_state
     #box.plot_energy
-    # 
 
 
 if __name__ == "__main__":
