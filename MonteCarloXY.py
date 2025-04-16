@@ -43,12 +43,13 @@ class Box():
         self.spins = rng.uniform(-np.pi, np.pi, [self.N,self.N])
 
 
-    def inner_prod(self, si, sj):
-        """
-        Computes the energy contribution between two neighbouring spins, 
-        i.e. the interaction energy.
-        """
-        return -1 * (np.cos(si)*np.cos(sj) + np.sin(si)*np.sin(sj))
+    # def inner_prod(self, si, sj):
+    #     """
+    #     Computes the energy contribution between two neighbouring spins, 
+    #     i.e. the interaction energy.
+    #     """
+    #     return -1 * (np.cos(si)*np.cos(sj) + np.sin(si)*np.sin(sj))
+    #     return -1 * np.cos(si-sj)
 
     def Hamiltonian(self, x,y, val):
         """
@@ -56,10 +57,17 @@ class Box():
         neighbouring spins, using periodic boundary conditions. 
         """
         summ = 0
-        summ += self.inner_prod(val, self.spins[(x+1)%self.N, y])
-        summ += self.inner_prod(val, self.spins[(x-1)%self.N, y])
-        summ += self.inner_prod(val, self.spins[x, (y+1)%self.N])
-        summ += self.inner_prod(val, self.spins[x, (y-1)%self.N])
+        # -1 * np.cos(- self.spins[(x+1)%self.N, y])
+
+        summ -= 1 * np.cos(val - self.spins[(x+1)%self.N, y])
+        summ -= 1 * np.cos(val - self.spins[(x-1)%self.N, y])
+        summ -= 1 * np.cos(val - self.spins[x, (y+1)%self.N])
+        summ -= 1 * np.cos(val - self.spins[x, (y-1)%self.N])
+
+        # summ += self.inner_prod(val, self.spins[(x+1)%self.N, y])
+        # summ += self.inner_prod(val, self.spins[(x-1)%self.N, y])
+        # summ += self.inner_prod(val, self.spins[x, (y+1)%self.N])
+        # summ += self.inner_prod(val, self.spins[x, (y-1)%self.N])
 
         return summ
 
@@ -90,14 +98,35 @@ class Box():
         dM_tot = np.array([0.0,0.0])
         for i in range(self.N ** 2):
             dE, dM = self.try_new_state()
-            # print('de: ', dE, 'dM: ', dM)
             dE_tot += dE
             dM_tot += dM
-        
-        # print(dM)
 
         self.energies[ti+1] = self.energies[ti] + dE_tot
         self.magnetizations[ti+1] = self.magnetizations[ti] + dM_tot
+
+    def autocorrelation(self):
+        teq = 40
+        tmax = self.steps - teq
+        abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
+        
+        chi = np.zeros(tmax)
+        # chi = []
+
+        for t in range(0, tmax-1):
+            _1 = abs_magn[teq:tmax-t]
+            _2 = abs_magn[teq+t:tmax]
+
+            chi[t] = -(np.sum(_1 * _2) - np.sum(_1) * np.sum(_2)) / (tmax - t)
+            # chi[t] = (np.sum(_1 * _2)) / (tmax - t)
+
+        # TODO: integrate over chi[t]: 
+        tau = np.sum(chi)/chi[0]
+        print(self.T, tau)
+
+        plt.figure()
+        plt.plot(chi)
+        plt.savefig('time_corr.png')
+        # np.sum(_1 * _2)
 
     def total_magnetization(self):
         """
@@ -114,7 +143,7 @@ class Box():
         for i in range(self.N):
             for j in range(self.N):
                 total_E+= self.Hamiltonian(i, j, self.spins[i,j])
-        print(-1*total_E/2)
+        # print(-1*total_E/2)
         return -1*total_E/2
     
     def plot_magnetization(self, ax=None):
@@ -160,13 +189,14 @@ class Box():
         plt.savefig('state.png')
 
     def run(self):
-        print('running...')
+        print('\033[91mrunning...\033[00m')
         # while self.ti+1 < self.steps:
         for time_step in range(0, self.steps):
             self.sweep(time_step)
-            if (time_step%100==0):
+            if ((time_step)%50==0):
                 print(f'{time_step} steps done')
             # self.state()
+        print('\033[91mdone!\033[00m')
 
 def animated(box):
     fig = plt.figure(figsize=[6,6])
@@ -199,6 +229,7 @@ def normal(box):
     box.plot_state()
     box.plot_energy()
     box.plot_magnetization()
+    box.autocorrelation()
 
 def batch():
     N = 20
@@ -221,24 +252,25 @@ def batch():
 
 def batch2():
     N = 20
-    steps = 100
+    steps = 200
 
     Ts = np.arange(0.5, 2.5, 0.2)
 
-    fig_E, axs_E = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
-    fig_M, axs_M = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
+    # fig_E, axs_E = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
+    # fig_M, axs_M = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
 
     for i, T in enumerate(Ts):
         box = Box(N=N, steps=steps, T=T)
         box.run()
+        box.autocorrelation()
 
-        box.plot_energy(axs_E[i])
-        axs_E[i].set_title(f'T = {T}')
-        box.plot_magnetization(axs_M[i])
-        axs_M[i].set_title(f'T = {T}')
+        # box.plot_energy(axs_E[i])
+        # axs_E[i].set_title(f'T = {T}')
+        # box.plot_magnetization(axs_M[i])
+        # axs_M[i].set_title(f'T = {T}')
 
-    fig_E.savefig(f'energy.png')
-    fig_M.savefig(f'magn.png')
+    # fig_E.savefig(f'energy.png')
+    # fig_M.savefig(f'magn.png')
 
 def main():
     N = 50
@@ -246,19 +278,17 @@ def main():
     box = Box(N=N, steps=steps, seed=1, T=1.5)
     # normal(box)
 
-    # batch2()
-    animated(box)
+    # box.run()
+    # box.time_correlation()
+
+    batch2()
+    # animated(box)
 
     # box.total_magnetization()
     # box.total_energy()
     # box.plot_state()
     # box.plot_magnetization()
     # box.plot_energy()
-
-    mx, my = box.total_magnetization()
-    a = np.sqrt(mx ** 2 + my ** 2)
-    print(a)
-    print(np.sqrt(np.sum(box.magnetizations[-1] ** 2)))
 
 
     #box.plot_state
