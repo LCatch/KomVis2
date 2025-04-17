@@ -109,18 +109,18 @@ class Box():
         teq = 40
         tmax = self.steps - teq
         self.tmax = tmax
-        abs_magn = self.abs_magn
+        abs_m_perspin = self.abs_m_perspin
     
         chi = np.zeros(tmax)
 
-        # abs_magn = np.array([22, 24, 25, 25, 28, 29, 34, 37, 40, 44, 51, 48, 47, 50, 51])
+        # abs_m_perspin = np.array([22, 24, 25, 25, 28, 29, 34, 37, 40, 44, 51, 48, 47, 50, 51])
         # teq=0
         # tmax=15
 
         for t in range(0, tmax-1):
             # print(teq, t, tmax)
-            _1 = abs_magn[teq:tmax-t+teq]
-            _2 = abs_magn[teq+t:tmax+teq]
+            _1 = abs_m_perspin[teq:tmax-t+teq]
+            _2 = abs_m_perspin[teq+t:tmax+teq]
 
             # print(_1, _2)
             # print(len(_1))
@@ -165,20 +165,19 @@ class Box():
         # print(-1*total_E/2)
         return -1*total_E/2
     
-    def averages(self):
-        abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
-        2 * self.tau * (np.mean(abs_magn ** 2) - np.mean(abs_magn) ** 2) / self.tmax
+    def error_of(self, quantity):
+        return np.sqrt(2 * self.tau * (np.mean(quantity ** 2) - np.mean(quantity) ** 2) / self.tmax)
 
 
     def plot_magnetization(self, ax=None, label = ""):
         save=False
-        # abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
+        # abs_m_perspin = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
         
         if not ax:
             plt.figure()
             ax = plt.gca()
             save = True
-        ax.plot(self.abs_magn, label = label)
+        ax.plot(self.abs_m_perspin, label = label)
         
         if save:
             plt.savefig('magn_plot.png')
@@ -213,7 +212,21 @@ class Box():
         plt.savefig('state.png')
 
     def finalize(self):
-        self.abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
+        self.abs_m = np.sqrt(np.sum(self.magnetizations ** 2, axis=1))
+        self.abs_m_perspin = self.abs_m / (self.N ** 2)
+        self.autocorrelation(plot=False) #sets tau, necessary.
+        self.e_perspin = self.energies / (self.N ** 2)
+
+        self.abs_m_perspin_err = self.error_of(self.abs_m_perspin)
+        self.e_perspin_err = self.error_of(self.e_perspin)
+
+        self.e_perspin_avg = np.average(self.e_perspin)
+        self.abs_m_perspin_avg = np.average(self.abs_m_perspin)
+        
+        print(f'abs m = {self.abs_m_perspin_avg:.4f} +/- {self.abs_m_perspin_err:.4f}')
+        print(f'e = {self.e_perspin_avg:.4f} +/- {self.e_perspin_err:.4f}')
+
+
 
     def run(self):
         print(f'\033[91mrunning... T={self.T}\033[00m')
@@ -224,6 +237,7 @@ class Box():
                 print(f'{time_step} steps done')
             # self.state()
         print('\033[91mdone!\033[00m')
+        self.finalize()
 
 def animated(box):
     fig = plt.figure(figsize=[6,6])
@@ -323,17 +337,17 @@ def batch2():
 
 def main():
     N = 20
-    steps = 1500
-    # box = Box(N=N, steps=steps, seed=1, T=1.5)
+    steps = 1000
+    box = Box(N=N, steps=steps, seed=1, T=1.5)
 
-    # box.run()
+    box.run()
     # tau = box.autocorrelation(plot=True)
     # print(tau)
     # box.plot_state()
     # box.plot_magnetization()
     # box.plot_energy()
 # 
-    batch2()
+    # batch2()
     # animated(box)
 
     # box.total_magnetization()
