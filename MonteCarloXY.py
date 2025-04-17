@@ -51,6 +51,7 @@ class Box():
     #     return -1 * (np.cos(si)*np.cos(sj) + np.sin(si)*np.sin(sj))
     #     return -1 * np.cos(si-sj)
 
+
     def Hamiltonian(self, x,y, val):
         """
         Computes the local energy sum of interactions of the 4 nearest
@@ -104,29 +105,47 @@ class Box():
         self.energies[ti+1] = self.energies[ti] + dE_tot
         self.magnetizations[ti+1] = self.magnetizations[ti] + dM_tot
 
-    def autocorrelation(self):
+    def autocorrelation(self, plot=False):
         teq = 40
         tmax = self.steps - teq
-        abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
-        
+        self.tmax = tmax
+        abs_magn = self.abs_magn
+    
         chi = np.zeros(tmax)
-        # chi = []
+
+        # abs_magn = np.array([22, 24, 25, 25, 28, 29, 34, 37, 40, 44, 51, 48, 47, 50, 51])
+        # teq=0
+        # tmax=15
 
         for t in range(0, tmax-1):
-            _1 = abs_magn[teq:tmax-t]
-            _2 = abs_magn[teq+t:tmax]
+            # print(teq, t, tmax)
+            _1 = abs_magn[teq:tmax-t+teq]
+            _2 = abs_magn[teq+t:tmax+teq]
 
-            chi[t] = -(np.sum(_1 * _2) - np.sum(_1) * np.sum(_2)) / (tmax - t)
-            # chi[t] = (np.sum(_1 * _2)) / (tmax - t)
+            # print(_1, _2)
+            # print(len(_1))
+            # print(tmax - t)
 
-        # TODO: integrate over chi[t]: 
-        tau = np.sum(chi)/chi[0]
-        print(self.T, tau)
+            chi[t] = (np.sum(_1 * _2) - np.sum(_1) * np.sum(_2)/(tmax - t)) / (tmax - t)
+            # chi[t] = (np.sum(_1 * _2) ) / (tmax - t)
+            # print((_1 * _2).shape)
 
-        plt.figure()
-        plt.plot(chi)
-        plt.savefig('time_corr.png')
+        tau = np.sum(chi[:np.argmax(chi<0)])/chi[0]
+        # print(self.T, tau)
+        # return tau
+
+        with open('taus.txt', "a") as file:
+            file.write(f"T: {self.T:.2f}, tau: {tau:.4f}\n")
+        if plot:
+            plt.figure()
+            plt.plot(chi)
+            plt.xlim(0,200)
+            plt.savefig('autocorrelation.png')
+
+        # return tau
+        self.tau = tau
         # np.sum(_1 * _2)
+
 
     def total_magnetization(self):
         """
@@ -146,15 +165,20 @@ class Box():
         # print(-1*total_E/2)
         return -1*total_E/2
     
+    def averages(self):
+        abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
+        2 * self.tau * (np.mean(abs_magn ** 2) - np.mean(abs_magn) ** 2) / self.tmax
+
+
     def plot_magnetization(self, ax=None, label = ""):
         save=False
-        abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
+        # abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
         
         if not ax:
             plt.figure()
             ax = plt.gca()
             save = True
-        ax.plot(abs_magn, label = label)
+        ax.plot(self.abs_magn, label = label)
         
         if save:
             plt.savefig('magn_plot.png')
@@ -188,8 +212,11 @@ class Box():
                 headaxislength=10, headlength=10, headwidth=6)
         plt.savefig('state.png')
 
+    def finalize(self):
+        self.abs_magn = np.sqrt(np.sum(self.magnetizations ** 2, axis=1)) / (self.N ** 2)
+
     def run(self):
-        print('\033[91mrunning...\033[00m')
+        print(f'\033[91mrunning... T={self.T}\033[00m')
         # while self.ti+1 < self.steps:
         for time_step in range(0, self.steps):
             self.sweep(time_step)
@@ -237,59 +264,75 @@ def batch():
     T = 0.5
     Nsims = 2
 
-    fig_E, axs_E = plt.subplots(Nsims, 1)
-    fig_M, axs_M = plt.subplots(Nsims, 1)
+    # fig_E, axs_E = plt.subplots(Nsims, 1)
+    # fig_M, axs_M = plt.subplots(Nsims, 1)
+
 
     for i in range(Nsims):
         box = Box(N=N, steps=steps, seed=975, T=T)
         box.run()
 
-        box.plot_energy(axs_E[i])
-        axs_E[i].set_title(f'Energy for simul {i}')
-        box.plot_magnetization(axs_M[i])
-        axs_M[i].set_title(f'Magnetization for simul {i}')
+        # box.plot_energy(axs_E[i])
+        # axs_E[i].set_title(f'Energy for simul {i}')
+        # box.plot_magnetization(axs_M[i])
+        # axs_M[i].set_title(f'Magnetization for simul {i}')
 
-
-    fig_E.savefig(f'energy_{T}_multi.png')
-    fig_M.savefig(f'magn_{T}_multi.png')
+    # fig_E.savefig(f'energy_{T}_multi.png')
+    # fig_M.savefig(f'magn_{T}_multi.png')
 
 def batch2():
-    N = 10
-    steps = 100
-    Nsims = 2
+    N = 20
+    steps = 1000
+    Nsims = 1
 
     Ts = np.arange(0.5, 2.5, 0.2)
+    with open('taus.txt', "w") as file:
+        file.write(f'steps = {steps}, N={N}\n')
 
-    fig_E, axs_E = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
-    fig_M, axs_M = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
+    # fig_E, axs_E = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
+    # fig_M, axs_M = plt.subplots(len(Ts), 1, figsize=[4,len(Ts)*4])
     
+    taus = []
+
     for j in range(Nsims):
         for i, T in enumerate(Ts):
             box = Box(N=N, steps=steps, T=T)
             box.run()
+            box.autocorrelation()
+            taus.append(box.tau)
 
-            box.plot_energy(axs_E[i], label = f'Simul {j+1}')
-            axs_E[i].set_title(f'T = {T}')
-            axs_E[i].legend()          
-            box.plot_magnetization(axs_M[i], label = f'Simul {j+1}')
-            axs_M[i].set_title(f'T = {T}')
-            axs_M[i].legend()
+            # box.plot_energy(axs_E[i], label = f'Simul {j+1}')
+            # axs_E[i].set_title(f'T = {T}')
+            # axs_E[i].legend()          
+            # box.plot_magnetization(axs_M[i], label = f'Simul {j+1}')
+            # axs_M[i].set_title(f'T = {T}')
+            # axs_M[i].legend()
 
-    fig_E.savefig(f'energymulti.png')
-    fig_M.savefig(f'magnmulti.png')
+    # fig_E.savefig(f'energymulti.png')
+    # fig_M.savefig(f'magnmulti.png')
+
+    plt.figure()
+    plt.plot(Ts, taus)
+    plt.ylabel(r'Correlation time $\tau$')
+    plt.xlabel('Temperature')
+    plt.savefig('taus.png')
 
 
-    fig_E.savefig(f'energy.png')
-    fig_M.savefig(f'magn.png')
+    # fig_E.savefig(f'energy.png')
+    # fig_M.savefig(f'magn.png')
 
 def main():
-    N = 50
-    steps = 200
-    #box = Box(N=N, steps=steps, seed=1, T=1.5)
+    N = 20
+    steps = 1500
+    # box = Box(N=N, steps=steps, seed=1, T=1.5)
 
     # box.run()
-    # box.time_correlation()
-
+    # tau = box.autocorrelation(plot=True)
+    # print(tau)
+    # box.plot_state()
+    # box.plot_magnetization()
+    # box.plot_energy()
+# 
     batch2()
     # animated(box)
 
@@ -299,10 +342,6 @@ def main():
     # box.plot_magnetization()
     # box.plot_energy()
 
-    mx, my = box.total_magnetization()
-    a = np.sqrt(mx ** 2 + my ** 2)
-    print(a)
-    print(np.sqrt(np.sum(box.magnetizations[-1] ** 2)))
 
 
     #box.plot_state
