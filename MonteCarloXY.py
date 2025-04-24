@@ -7,21 +7,44 @@ python MonteCarloXY.py
 import matplotlib.pyplot as plt
 import numpy as np
 from math import sin, cos
-from matplotlib.animation import FuncAnimation 
+from matplotlib.animation import FuncAnimation
+from cycler import cycler
+import time
+from numba import jit, float64
 
 plt.rcParams['image.cmap'] = 'hsv'
 
+@jit(nopython=True)
+def _Hamiltonian(xy0, x1, x2, y1, y2):
+    summ = 0
+    # -1 * np.cos(- self.spins[(x+1)%self.N, y])
+
+    summ = summ - np.cos(xy0 - x1)
+    summ = summ - np.cos(xy0 - x2)
+    summ = summ - np.cos(xy0 - y1)
+    summ = summ - np.cos(xy0 - y2)
+
+    return summ
+
 class Box():
-    def __init__(self,N=10, steps=100, T=1, seed=3823582):
+    def __init__(self,N=10, steps=100, T=1, seed=3823582, summary_file=None):
         self.N = N #grid size 1D
         self.steps = steps #timesteps
         self.T = T #temperature
+
+        if summary_file:
+            with open(summary_file, "w") as file:
+                file.write("")
+            self.summary_file = summary_file
+        else:
+            self.summary_file = 'summary.txt'
 
         
         self.spins = np.zeros([N,N])
         self.X, self.Y = np.meshgrid(np.arange(0,self.N), np.arange(0, self.N))
         self.energies = np.zeros(steps+1)
         self.magnetizations = np.zeros([steps+1, 2])
+        self.teq = 50
         # self.ti = 0     # index of last accepted step
 
         self.set_init_conditions(seed=seed)
@@ -58,7 +81,7 @@ class Box():
         neighbouring spins, using periodic boundary conditions. 
         """
         summ = 0
-        # -1 * np.cos(- self.spins[(x+1)%self.N, y])
+        # # -1 * np.cos(- self.spins[(x+1)%self.N, y])
 
         summ -= 1 * np.cos(val - self.spins[(x+1)%self.N, y])
         summ -= 1 * np.cos(val - self.spins[(x-1)%self.N, y])
@@ -70,43 +93,81 @@ class Box():
         # summ += self.inner_prod(val, self.spins[x, (y+1)%self.N])
         # summ += self.inner_prod(val, self.spins[x, (y-1)%self.N])
 
+        # summ = _Hamiltonian(val, 
+        #                     self.spins[(x+1)%self.N, y], 
+        #                     self.spins[(x-1)%self.N, y],
+        #                     self.spins[x, (y+1)%self.N],
+        #                     self.spins[x, (y-1)%self.N])
+
         return summ
 
-    def try_new_state(self):
-        ''' Try 1 new position '''
-        x,y = np.random.choice(self.N, size=2)
-        spin_curr = self.spins[x,y]
-        spin_new = np.random.uniform(-np.pi, np.pi, 1)
-        H1 = self.Hamiltonian(x,y,spin_curr)
-        H2 = self.Hamiltonian(x,y,spin_new)
+    # def try_new_state(self):
+    #     ''' Try 1 new position '''
+    #     x,y = np.random.choice(self.N, size=2)
+    #     spin_curr = self.spins[x,y]
+    #     spin_new = np.random.uniform(-np.pi, np.pi, 1)
+    #     H1 = self.Hamiltonian(x,y,spin_curr)
+    #     H2 = self.Hamiltonian(x,y,spin_new)
 
-        dE = H2 - H1
-        p = np.exp(-1/self.T * dE) 
+    #     dE = H2 - H1
+    #     p = np.exp(-1/self.T * dE) 
 
-        if (H2 < H1) or (np.random.rand() < p):
-            self.spins[x,y] = spin_new
-            dM = [cos(spin_new) - cos(spin_curr), sin(spin_new) - sin(spin_curr)]
-            # dM = [0,0]
-            return dE, dM
-        else:
-            return 0, [0,0]
+    #     if (H2 < H1) or (np.random.rand() < p):
+    #         self.spins[x,y] = spin_new
+    #         dM = [cos(spin_new) - cos(spin_curr), sin(spin_new) - sin(spin_curr)]
+    #         # dM = [0,0]
+    #         return dE, dM
+    #     else:
+    #         return 0, [0,0]
 
-    def sweep(self, ti): 
-        """
-        Performs NxN Metropolis steps, so for every site in the grid.
-        """
+    # def sweep(self, ti): 
+    #     """
+    #     Performs NxN Metropolis steps, so for every site in the grid.
+    #     """
+    #     dE_tot = 0
+    #     dM_tot = np.array([0.0,0.0])
+    #     for i in range(self.N ** 2):
+    #         dE, dM = self.try_new_state()
+    #         dE_tot += dE
+    #         dM_tot += dM
+
+    #     self.energies[ti+1] = self.energies[ti] + dE_tot
+    #     self.magnetizations[ti+1] = self.magnetizations[ti] + dM_tot
+
+    def sweep(self, ti):
         dE_tot = 0
         dM_tot = np.array([0.0,0.0])
-        for i in range(self.N ** 2):
-            dE, dM = self.try_new_state()
-            dE_tot += dE
-            dM_tot += dM
+
+        for (x,y), spin_new, rnd in zip(np.random.choice(self.N, size=[self.N**2, 2]), 
+                                        np.random.uniform(-np.pi, np.pi, self.N**2),
+                                        np.random.rand(self.N**2)):
+            spin_curr = self.spins[x,y]
+
+            H1 = _Hamiltonian(spin_curr, 
+                            self.spins[(x+1)%self.N, y], 
+                            self.spins[(x-1)%self.N, y],
+                            self.spins[x, (y+1)%self.N],
+                            self.spins[x, (y-1)%self.N])
+        
+            H2 = _Hamiltonian(spin_new, 
+                            self.spins[(x+1)%self.N, y], 
+                            self.spins[(x-1)%self.N, y],
+                            self.spins[x, (y+1)%self.N],
+                            self.spins[x, (y-1)%self.N])
+
+            dE = H2 - H1
+            p = np.exp(-1/self.T * dE) 
+            if (dE < 0) or (rnd < p):
+                self.spins[x,y] = spin_new
+                dM_tot[0] += np.cos(spin_new) - np.cos(spin_curr)
+                dM_tot[1] += np.sin(spin_new) - np.sin(spin_curr)
+                dE_tot += dE
 
         self.energies[ti+1] = self.energies[ti] + dE_tot
         self.magnetizations[ti+1] = self.magnetizations[ti] + dM_tot
 
     def autocorrelation(self, plot=False):
-        teq = 40
+        teq = self.teq
         tmax = self.steps - teq
         self.tmax = tmax
         abs_m_perspin = self.abs_m_perspin
@@ -121,10 +182,6 @@ class Box():
             # print(teq, t, tmax)
             _1 = abs_m_perspin[teq:tmax-t+teq]
             _2 = abs_m_perspin[teq+t:tmax+teq]
-
-            # print(_1, _2)
-            # print(len(_1))
-            # print(tmax - t)
 
             chi[t] = (np.sum(_1 * _2) - np.sum(_1) * np.sum(_2)/(tmax - t)) / (tmax - t)
             # chi[t] = (np.sum(_1 * _2) ) / (tmax - t)
@@ -161,7 +218,7 @@ class Box():
         total_E= 0
         for i in range(self.N):
             for j in range(self.N):
-                total_E+= self.Hamiltonian(i, j, self.spins[i,j])
+                total_E += self.Hamiltonian(i, j, self.spins[i,j])
         # print(-1*total_E/2)
         return -1*total_E/2
     
@@ -176,8 +233,12 @@ class Box():
         if not ax:
             plt.figure()
             ax = plt.gca()
+            ax.set_title(f'N = {self.N}, steps = {self.steps}, T = {self.T}')
             save = True
         ax.plot(self.abs_m_perspin, label = label)
+        ax.set_xlabel("Time [sweeps]")
+        ax.set_ylabel("Magnetization per spin [n.u.]")
+        ax.legend(title="Temperature [n.u.]", loc=1)
         
         if save:
             plt.savefig('magn_plot.png')
@@ -187,9 +248,13 @@ class Box():
         if not ax:
             plt.figure()
             ax = plt.gca()
+            ax.set_title(f'N = {self.N}, steps = {self.steps}, T = {self.T}')
             save = True
         
-        ax.plot(self.energies / (self.N ** 2), label = label)
+        ax.plot(self.energies / (self.N ** 2), label=label)
+        ax.set_xlabel("Time [sweeps]")
+        ax.set_ylabel("Energy per spin [n.u.]")
+        ax.legend(title="Temperature [n.u.]", loc=1)
         
         if save:
             plt.savefig(f'energy_plot.png') 
@@ -211,6 +276,31 @@ class Box():
                 headaxislength=10, headlength=10, headwidth=6)
         plt.savefig('state.png')
 
+
+    def magnetic_sussy(self):
+        block_length = int(self.tau * 16)
+        M_ = self.abs_m[self.teq : ((self.steps-self.teq) // block_length)*block_length + self.teq]
+        M = np.reshape(M_, (-1, block_length))
+        mag_sus = ((M ** 2).mean(axis=1) - M.mean(axis=1) ** 2) / (self.N**2 * self.T)
+        
+        with open(self.summary_file, "a") as file:
+            file.write(f'no. Independent blocks = {len(M)}\n')
+            file.write(f'chi_m = {np.mean(mag_sus):.4f} +/- {np.std(mag_sus):.4f}\n')
+        
+        print(rf'chi_m = {np.mean(mag_sus):.4f} +/- {np.std(mag_sus):.4f}')
+
+    def specific_heat(self):
+        block_length = int(self.tau * 16)
+        E_ = self.energies[self.teq : ((self.steps-self.teq) // block_length)*block_length + self.teq]
+        E = np.reshape(E_, (-1, block_length))
+        spec_heat = ((E ** 2).mean(axis=1) - E.mean(axis=1) ** 2) / (self.N**2 * self.T**2)
+
+        with open(self.summary_file, "a") as file:
+            file.write(f'no. Independent blocks = {len(E)}\n')
+            file.write(f'specific heat D = {np.mean(spec_heat):.4f} +/- {np.std(spec_heat):.4f}\n')
+        
+        print(rf'chi_m = {np.mean(spec_heat):.4f} +/- {np.std(spec_heat):.4f}')
+
     def finalize(self):
         self.abs_m = np.sqrt(np.sum(self.magnetizations ** 2, axis=1))
         self.abs_m_perspin = self.abs_m / (self.N ** 2)
@@ -222,21 +312,32 @@ class Box():
 
         self.e_perspin_avg = np.average(self.e_perspin)
         self.abs_m_perspin_avg = np.average(self.abs_m_perspin)
-        
+
+        with open(self.summary_file, "a") as file:
+            file.write(f'\ntau = {self.tau}\n')
+            file.write(f'abs m = {self.abs_m_perspin_avg:.4f} +/- {self.abs_m_perspin_err:.4f}\n')
+            file.write(f'e = {self.e_perspin_avg:.4f} +/- {self.e_perspin_err:.4f}\n')
+
         print(f'abs m = {self.abs_m_perspin_avg:.4f} +/- {self.abs_m_perspin_err:.4f}')
         print(f'e = {self.e_perspin_avg:.4f} +/- {self.e_perspin_err:.4f}')
 
+        self.magnetic_sussy()
+        self.specific_heat()
 
 
     def run(self):
-        print(f'\033[91mrunning... T={self.T}\033[00m')
+        print(f'\033[91mrunning... T={self.T:.4f}\033[00m')
         # while self.ti+1 < self.steps:
+
+        start = time.perf_counter()
         for time_step in range(0, self.steps):
             self.sweep(time_step)
             if ((time_step)%50==0):
                 print(f'{time_step} steps done')
             # self.state()
-        print('\033[91mdone!\033[00m')
+        end = time.perf_counter()
+        
+        print(f'\033[91mdone! runtime = {(end-start):.0f} s\033[00m')
         self.finalize()
 
 def animated(box):
@@ -294,9 +395,46 @@ def batch():
     # fig_E.savefig(f'energy_{T}_multi.png')
     # fig_M.savefig(f'magn_{T}_multi.png')
 
-def batch2():
-    N = 20
-    steps = 1000
+def batch_equilib():
+    N = 50
+    steps = 200
+    # Nsims = 2
+
+    Ts = np.arange(0.5, 2.7, 0.2)
+
+    fig_E, axs_E = plt.subplots(1, 1, figsize=[8,5])
+    fig_M, axs_M = plt.subplots(1, 1, figsize=[8,5])
+
+    with open('summary.txt', "w") as file:
+        file.write(f"New batch, N={N}\n")
+
+    colormap = plt.get_cmap('plasma')
+    axs_E.set_prop_cycle(cycler(color=[colormap(i) for i in np.linspace(0,1,len(Ts))]))
+    axs_M.set_prop_cycle(cycler(color=[colormap(i) for i in np.linspace(0,1,len(Ts))]))
+    
+    for T in Ts:
+        box = Box(N=N, steps=steps, seed=975, T=T)
+        box.run()
+
+        box.plot_energy(axs_E, label=f'{T:.2f}')
+        box.plot_magnetization(axs_M, label=f'{T:.2f}')
+    
+    axs_E.set_title(f'Energy per spin for a {N}x{N} grid')
+    # axs_E.set_xlabel("Time [sweeps]")
+    # axs_E.set_ylabel("Energy per spin [n.u.]")
+    # axs_E.legend(title="Temperature [n.u.]", loc=1)
+
+    axs_M.set_title(f'Magnetization per spin for a {N}x{N} grid')
+    # axs_M.set_xlabel("Time [sweeps]")
+    # axs_M.set_ylabel("Magnetization per spin [n.u.]")
+    # axs_M.legend(title="Temperature [n.u.]", loc=1)
+
+    fig_E.savefig(f'energy_batch.png')
+    fig_M.savefig(f'magn_batch.png')
+
+def batch_taus():
+    N = 50
+    steps = 2000
     Nsims = 1
 
     Ts = np.arange(0.5, 2.5, 0.2)
@@ -308,19 +446,18 @@ def batch2():
     
     taus = []
 
-    for j in range(Nsims):
-        for i, T in enumerate(Ts):
-            box = Box(N=N, steps=steps, T=T)
-            box.run()
-            box.autocorrelation()
-            taus.append(box.tau)
+    for i, T in enumerate(Ts):
+        box = Box(N=N, steps=steps, T=T)
+        box.run()
+        box.autocorrelation()
+        taus.append(box.tau)
 
-            # box.plot_energy(axs_E[i], label = f'Simul {j+1}')
-            # axs_E[i].set_title(f'T = {T}')
-            # axs_E[i].legend()          
-            # box.plot_magnetization(axs_M[i], label = f'Simul {j+1}')
-            # axs_M[i].set_title(f'T = {T}')
-            # axs_M[i].legend()
+        # box.plot_energy(axs_E[i], label = f'Simul {j+1}')
+        # axs_E[i].set_title(f'T = {T}')
+        # axs_E[i].legend()          
+        # box.plot_magnetization(axs_M[i], label = f'Simul {j+1}')
+        # axs_M[i].set_title(f'T = {T}')
+        # axs_M[i].legend()
 
     # fig_E.savefig(f'energymulti.png')
     # fig_M.savefig(f'magnmulti.png')
@@ -336,18 +473,20 @@ def batch2():
     # fig_M.savefig(f'magn.png')
 
 def main():
-    N = 20
+    N = 50
     steps = 1000
-    box = Box(N=N, steps=steps, seed=1, T=1.5)
+    # box = Box(N=N, steps=steps, seed=5, T=1.9, summary_file='summary.txt')
+    # box.run()
 
-    box.run()
+    # box.run()
     # tau = box.autocorrelation(plot=True)
-    # print(tau)
+    # print(box.tau)
     # box.plot_state()
     # box.plot_magnetization()
     # box.plot_energy()
 # 
-    # batch2()
+    # batch_equilib()
+    batch_taus()
     # animated(box)
 
     # box.total_magnetization()
