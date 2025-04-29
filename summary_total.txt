@@ -1,0 +1,120 @@
+
+tau = 868.4469832750787
+abs m = 0.6152 +/- 0.0257
+e = 2.5616 +/- 0.0062
+no. Independent blocks = 1
+chi_m = 4.9782 +/- 0.0000
+no. Independent blocks = 1
+specific heat D = 0.9563 +/- 0.0000
+
+tau = 147.8232784320391
+abs m = 0.6260 +/- 0.0056
+e = 2.5609 +/- 0.0026
+no. Independent blocks = 7
+chi_m = 4.7815 +/- 1.6384
+no. Independent blocks = 7
+specific heat D = 0.9949 +/- 0.0654
+
+tau = 127.11458373943792
+abs m = 0.6273 +/- 0.0051
+e = 2.5597 +/- 0.0024
+no. Independent blocks = 8
+chi_m = 4.5902 +/- 1.5129
+no. Independent blocks = 8
+specific heat D = 1.0008 +/- 0.0892
+
+tau = 263.6016912759448
+abs m = 0.6289 +/- 0.0075
+e = 2.5608 +/- 0.0034
+no. Independent blocks = 4
+chi_m = 5.1497 +/- 1.9041
+no. Independent blocks = 4
+specific heat D = 0.9790 +/- 0.0487
+
+tau = 340.5262244172428
+abs m = 0.6259 +/- 0.0085
+e = 2.5611 +/- 0.0038
+no. Independent blocks = 3
+chi_m = 4.6778 +/- 1.3928
+no. Independent blocks = 3
+specific heat D = 0.9824 +/- 0.0714
+
+tau = 227.9273590852055
+abs m = 0.6902 +/- 0.0066
+e = 2.4724 +/- 0.0026
+no. Independent blocks = 4
+chi_m = 5.0180 +/- 1.7211
+no. Independent blocks = 4
+specific heat D = 0.8300 +/- 0.0374
+
+tau = 226.6300219060828
+abs m = 0.7003 +/- 0.0050
+e = 2.4722 +/- 0.0025
+no. Independent blocks = 4
+chi_m = 2.7702 +/- 1.2135
+no. Independent blocks = 4
+specific heat D = 0.8020 +/- 0.0272
+
+tau = 119.55127793106053
+abs m = 0.6968 +/- 0.0035
+e = 2.4726 +/- 0.0018
+no. Independent blocks = 9
+chi_m = 2.4160 +/- 0.6115
+no. Independent blocks = 9
+specific heat D = 0.7939 +/- 0.0436
+
+tau = 211.10022606098622
+abs m = 0.6967 +/- 0.0048
+e = 2.4722 +/- 0.0024
+no. Independent blocks = 5
+chi_m = 2.6247 +/- 1.3438
+no. Independent blocks = 5
+specific heat D = 0.8190 +/- 0.0421
+
+tau = 309.9451695731064
+abs m = 0.7003 +/- 0.0064
+e = 2.4729 +/- 0.0030
+no. Independent blocks = 3
+chi_m = 3.5235 +/- 1.1644
+no. Independent blocks = 3
+specific heat D = 0.8335 +/- 0.0280
+
+tau = 205.2653818138785
+abs m = 0.6141 +/- 0.0068
+e = 2.5619 +/- 0.0030
+no. Independent blocks = 5
+chi_m = 4.5933 +/- 1.2378
+no. Independent blocks = 5
+specific heat D = 0.9750 +/- 0.0632
+
+tau = 194.95200677642202
+abs m = 0.6307 +/- 0.0059
+e = 2.5603 +/- 0.0030
+no. Independent blocks = 5
+chi_m = 3.3889 +/- 1.7809
+no. Independent blocks = 5
+specific heat D = 0.9939 +/- 0.0634
+
+tau = 576.0393638968375
+abs m = 0.6200 +/- 0.0137
+e = 2.5602 +/- 0.0050
+no. Independent blocks = 1
+chi_m = 5.3014 +/- 0.0000
+no. Independent blocks = 1
+specific heat D = 1.0344 +/- 0.0000
+
+tau = 172.44743479019405
+abs m = 0.6277 +/- 0.0056
+e = 2.5595 +/- 0.0027
+no. Independent blocks = 6
+chi_m = 3.2034 +/- 0.6578
+no. Independent blocks = 6
+specific heat D = 0.9213 +/- 0.0447
+
+tau = 231.3123791471668
+abs m = 0.6253 +/- 0.0068
+e = 2.5614 +/- 0.0031
+no. Independent blocks = 4
+chi_m = 3.9446 +/- 0.9130
+no. Independent blocks = 4
+specific heat D = 0.9582 +/- 0.1091
