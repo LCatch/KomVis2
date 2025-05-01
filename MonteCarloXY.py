@@ -45,8 +45,8 @@ class Box():
     Class for simulating a two-dimensional XY spin model using a 
     Metropolis Monte Carlo method.
     '''
-    def __init__(self, size=10, sweeps=100, temp=1, seed=0, summary_file=None,
-                 teq=1000, forced_tau=None):
+    def __init__(self, size=20, sweeps=5000, temp=1.5, seed=0, summary_file=None,
+                 teq=500, forced_tau=None):
         '''
         Setup the simulation:
         N: size of the simulation (total number of spins: NxN)
@@ -175,6 +175,7 @@ class Box():
         # Separate file for saving the correlation times
         with open('taus.txt', "a") as file:
             file.write(f"T: {self.temp:.2f}, tau: {tau:.4f}\n")
+        print(f'correlation time = {tau:.4f}')
         if plot:
             plt.figure()
             plt.plot(chi)
@@ -272,7 +273,11 @@ class Box():
         M = self.spins
         return U,V,M
     
-    def angle_difference(self, a,b):
+    def angle_difference(self, a, b):
+        '''
+        TODO COMMENT
+        '''
+
         delta = a - b
         while delta > np.pi:
             delta -= 2*np.pi
@@ -320,6 +325,9 @@ class Box():
         plt.savefig(filename)
         print(f"Amount of vortices per plotted state: {len(vortices)}; Amount of anti-vortices: {len(anti_vort)}")
 
+        self.vortex_count = len(vortices)
+        self.antivortex_count = len(anti_vort)
+
     def magnetic_sus(self):
         ''' Calculate the magnetic susceptibility of a simulation (haha sus)'''
         block_length = int(self.tau * 16)
@@ -345,6 +353,7 @@ class Box():
         print(f'chi_m = {self.magn_sus_avg:.4f} +/- {self.magn_sus_std:.4f}')
 
     def specific_heat(self):
+        ''' Calculate the specific heat of a simulation.'''
         block_length = int(self.tau * 16)
 
         # Cut 'energies' array to have a whole number of blocks 'block_len' starting
@@ -367,7 +376,7 @@ class Box():
             file.write(f'no. Independent blocks = {len(E)}\n')
             file.write(f'specific heat C = {self.spec_heat_avg:.4f} +/- {self.spec_heat_std:.4f}\n')
 
-        print(f'chi_m = {self.spec_heat_avg:.4f} +/- {self.spec_heat_std:.4f}')
+        print(f'sped_heat = {self.spec_heat_avg:.4f} +/- {self.spec_heat_std:.4f}')
 
     def finalize(self):
         '''
@@ -444,8 +453,8 @@ def animated(box):
     Warning: this takes longer than simply running the simulation.
     '''
     fig = plt.figure(figsize=[6,6])
-    plt.title(f'T = {box.T}')
-    ax = plt.axes(xlim =(0, box.N), ylim =(0, box.N))
+    plt.title(f'T = {box.temp}')
+    ax = plt.axes(xlim =(0, box.size), ylim =(0, box.size))
     quiv = ax.quiver([], [], [], [], [])
     a,c,d = box.state()
     quiv = ax.quiver(box.X, box.Y, a,c,d, pivot='mid', scale=1, scale_units='xy',
@@ -465,22 +474,19 @@ def animated(box):
     anim.save('simulation_animation.mp4', writer='ffmpeg')
 
     box.plot_state()
-    box.plot_energy()
-    box.plot_magnetization()
 
 def basic_analysis(box):
     ''' 
-    Run a simulation of the Box() instance 'box' and plot the basic results:
-    - simulation state at the end
-    - energy per spin as fuction of time
-    - mangetization per spin as function of time
-    - calculate the correlation time
+    Run a simulation of the Box() instance 'box' and calculate the 
+    basic results:
+    - average magnetization and energy per spin
+    - correlation time
+    - magnetic susceptibility
+    - specific heat
+    Additionally, plot the final state of the system
     '''
     box.run_simulation()
     box.plot_state()
-    box.plot_energy()
-    box.plot_magnetization()
-    box.autocorrelation()
 
 def batch_stat_quantities(file='taus_summary.csv', size=50):
     '''
@@ -511,12 +517,12 @@ def batch_stat_quantities(file='taus_summary.csv', size=50):
                               c='steelblue', linestyle='', marker='o',
                               label=sweeps)
         
-    ax_spec_heat.set_title('Specific heat of {size}x{size} system')
+    ax_spec_heat.set_title(f'Specific heat of {size}x{size} system')
     ax_spec_heat.set_xlabel('Temperature [n.u.]')
     ax_spec_heat.set_ylabel('Specific heat [n.u.]')
     fig_spec_heat.savefig('Specific_heat.png')
     
-    ax_magn_sus.set_title('Magnetic susceptibility of {size}x{size} system')
+    ax_magn_sus.set_title(f'Magnetic susceptibility of {size}x{size} system')
     ax_magn_sus.set_xlabel('Temperature [n.u.]')
     ax_magn_sus.set_ylabel('Magnetic susceptibility [n.u.]')
     fig_magn_sus.savefig('Magnetic_susceptibility.png')
@@ -554,6 +560,103 @@ def batch_equilib(size=50):
 
     fig_E.savefig(f'energy_batch.png')
     fig_M.savefig(f'magn_batch.png')
+
+def plot_m_e_vsT():
+    '''
+    Calculate and plot the average magnetization and energy, per spin,
+    with errors. A simulation is run for each temperature, and the 
+    results are additionally saved in in absm_e_T2.txt.
+    '''
+    N = 50
+    sweeps = 10000
+    Ts = np.arange(0.5, 2.7, 0.2)
+
+    avg_energies = []
+    avg_magnetizations = []
+    mag_err = []
+    e_err=[]
+
+    with open('absm_e_T2.txt', "w") as file:
+        file.write(f"New batch, N={N}, runs per temperature = 1\n")
+
+    for T in Ts:
+        E_list = []
+        M_list = []
+        E_err_list =[]
+        M_err_list = []
+
+        teq = 1400
+        if T > 1.1:
+            teq = 400
+        box = Box(size=N, sweeps=sweeps, temp=T, teq = teq)  # Use different seeds for variety
+        box.run_simulation(plot_states=False)
+
+        E_list.append(box.e_perspin_avg)
+        M_list.append(box.abs_m_perspin_avg)
+        E_err_list.append(box.e_perspin_err)
+        M_err_list.append(box.abs_m_perspin_err)
+
+        E_mean = np.mean(E_list)
+        M_mean = np.mean(M_list)
+        E_err = np.sqrt(np.mean(np.square(E_err_list)))
+        M_err = np.sqrt(np.mean(np.square(M_err_list)))
+
+        avg_energies.append(E_mean)
+        avg_magnetizations.append(M_mean)
+        mag_err.append(M_err)
+        e_err.append(E_err)
+
+        with open('absm_e_T2.txt', "a") as file:
+            file.write(f"T={T:.2f} | E_avg={E_mean:.4f} | M_avg={M_mean:.4f}\n")
+
+    # Plotting average energy vs temperature
+    plt.figure(figsize=(8, 5))
+    plt.errorbar(Ts, avg_energies, yerr = e_err, marker='o')
+    plt.xlabel('Temperature [n.u.]')
+    plt.ylabel('Energy per Spin [n.u.]')
+    plt.title(f'Avg. Energy vs Temperature ({N}x{N})')
+    #plt.grid(True)
+    plt.savefig('energy_vs_temp2.png')
+
+    # Plotting average magnetization vs temperature
+    plt.figure(figsize=(8, 5))
+    plt.errorbar(Ts, avg_magnetizations, yerr = mag_err, marker='o')
+    plt.xlabel('Temperature [n.u.]')
+    plt.ylabel('Magnetization per Spin [n.u.]')
+    plt.title(f'Avg. Magnetization vs Temperature ({N}x{N})')
+    #plt.grid(True)
+    plt.savefig('magnetization_vs_temp2.png')
+
+
+def plot_numbervortices(sweeps=20000):
+    '''
+    Calculate the average number of vortices ( = vortex + anitvortex) for
+    a range of temperatures. 
+    '''
+
+    N = 50
+    sweeps = sweeps
+    Ts = np.arange(0.5, 2.5, 0.2)
+    vortex_counts = []
+
+    for T in Ts:
+        vortex_total =[]
+        teq = 1400
+        if T > 1.1:
+            teq = 300
+        box = Box(size = N, sweeps = sweeps, temp = T, teq=teq)
+        box.run_simulation(plot_states=True)
+
+        vortex_total.append(box.vortex_count + box.antivortex_count)
+    
+    avg_vortices = np.mean(vortex_total)
+    vortex_counts.append(avg_vortices)
+
+    plt.plot(Ts, avg_vortices, label = f'{T:.2f}')
+    plt.xlabel("Temperature [n.u.]")
+    plt.ylabel("Number of (anti) vortices")
+    plt.title("Total amount of (anti)vortices as a function of temperature")
+    plt.savefig("vorticesvsT.png")
 
 def batch_corrtime_error(temp, sweeps=10000, size=50):
     '''
@@ -604,47 +707,39 @@ def plot_taus(file='taus_summary.csv'):
     plt.savefig('Correlation_times.png')
 
 
-# TODO s
-# Add magnetic shit
-# finish the IO part
-# finish README
-# fake the magn sus plots & stuff?
-
-
 def main():
-    # size = 20
-    # sweeps = 5000
-    # box = Box(N=N, sweeps=sweeps, seed=0, T=0.881, summary_file='summary.txt',
-                # save=False, teq=500)
-    # box.run_simulation(finalize=False, plot_states=True)
-    # box.autocorrelation(plot=True)
-    # print('tau = ', box.tau)
-    # box.plot_state()
-    # box.plot_magnetization()
-    # box.plot_energy()
+    box = Box(size=20, temp=1.6, sweeps=3000)
 
 # Run default analysis of the defined box
-    # basic_analysis(box)
+    basic_analysis(box)
 
 # Create an animation of the defined box
     # animated(box)
 
-# Create an equilibration plot for a lattice of N=20
+# Create an equilibration plot for a lattice of N=20 for temperatures
+# between 0.5 and 2.5
     # batch_equilib(20)
 
-# Calculate the correlation time using 10 runs for a temperature of 21
+# Calculate the correlation time using 10 runs for a temperature of 2.1
 # and a simulation of length 5000 (sweeps)
-    # batch_corrtime_error(2.1, sweeps=5000)
+    # batch_corrtime_error(2.1, sweeps=2000, size=10)
 
 # Create the correlation times plot using the file 'taus_summary.csv'
 # This file is pre-defined and needs to be created by hand by running
 # calculating the correlation times. 
     # plot_taus()
 
+# Calculate and plot absolute magnetization and energy per spin vs temperature, 
+# averaged over the amount of simulations ran. Saved in a .txt file.
+#    plot_m_e_vsT()
+
+# 
+#     plot_numbervortices(sweeps=10000)
+
 # Calculate two additional quantities of the simulation: specific heat
 # and magnetic susceptibility using the correlation times stored in
 # 'taus_summary.csv'. 
-    batch_stat_quantities()
+    # batch_stat_quantities(size=20)
 
 
 if __name__ == "__main__":
