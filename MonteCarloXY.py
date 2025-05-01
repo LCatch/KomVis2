@@ -8,6 +8,11 @@ Required packages: ffmpeg, numba
 Usage:
 python MonteCarloXY.py
 
+This code is used to simulate an XY spin model. It is evolved
+using the Metropolis algorithm (Monte Carlo). The system is
+allowed to reach thermal equlibrium, after which certain
+quantities are calculated.
+
 '''
 
 import matplotlib.pyplot as plt
@@ -275,9 +280,8 @@ class Box():
     
     def angle_difference(self, a, b):
         '''
-        TODO COMMENT
+        Calculate angle difference.
         '''
-
         delta = a - b
         while delta > np.pi:
             delta -= 2*np.pi
@@ -290,6 +294,7 @@ class Box():
         Plot a the current state of the simulation
         
         '''
+
         X, Y = np.meshgrid(np.arange(0,self.size), np.arange(0, self.size))
         U = np.cos(self.spins)
         V = np.sin(self.spins)
@@ -297,7 +302,8 @@ class Box():
         fig, ax = plt.subplots(figsize=[10,10])
         ax.quiver(X, Y, U, V, M, pivot='mid', scale=1, scale_units='xy',
                 headaxislength=10, headlength=10, headwidth=6)
-        
+        plt.title(f'State of system, T={self.temp}')
+
         vortices = []
         anti_vort = []
 
@@ -434,7 +440,7 @@ class Box():
             if ((time_step)%500==0):
                 print(f'{time_step} sweeps done')
                 if plot_states:
-                    self.plot_state(ti=time_step)
+                    self.plot_state()
         end = time.perf_counter()
         
         print(f'\033[91mdone! runtime = {(end-start):.0f} s\033[00m')
@@ -485,7 +491,7 @@ def basic_analysis(box):
     - specific heat
     Additionally, plot the final state of the system
     '''
-    box.run_simulation()
+    box.run_simulation(plot_states=True)
     box.plot_state()
 
 def batch_stat_quantities(file='taus_summary.csv', size=50):
@@ -708,7 +714,7 @@ def plot_taus(file='taus_summary.csv'):
 
 
 def main():
-    box = Box(size=20, temp=1.6, sweeps=3000)
+    box = Box(size=20, temp=1.7, sweeps=2500)
 
 # Run default analysis of the defined box
     basic_analysis(box)
@@ -733,8 +739,8 @@ def main():
 # averaged over the amount of simulations ran. Saved in a .txt file.
 #    plot_m_e_vsT()
 
-# 
-#     plot_numbervortices(sweeps=10000)
+# Calculate vortices, and create average vortices plot
+    # plot_numbervortices(sweeps=10000)
 
 # Calculate two additional quantities of the simulation: specific heat
 # and magnetic susceptibility using the correlation times stored in
